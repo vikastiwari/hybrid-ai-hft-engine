@@ -1,0 +1,46 @@
+# OS & WSL
+*:Zone.Identifier
+.DS_Store
+Thumbs.db
+
+# C++ (cpp-execution-core)
+build/
+*.so
+*.o
+*.out
+*.dylib
+*.dll
+*.exe
+
+# Java (java-orchestrator)
+target/
+*.class
+*.jar
+*.war
+*.ear
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Python (python-drl-brain)
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.log
+
+# React (react-dashboard)
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
