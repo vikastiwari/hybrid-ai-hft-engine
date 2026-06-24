@@ -1,4 +1,4 @@
-# **Bridging Nanosecond Execution with Microsecond AI: A Hybrid Architecture via Java 22 FFM and C++**
+# **Bridging Nanosecond Execution and Microsecond AI: A Hybrid Java 22 FFM / C++ Architecture for Low-Latency Trading**
 
 ## **1\. Abstract**
 
@@ -57,7 +57,7 @@ Empirical measurements were conducted to validate the latency constraints of the
 - **JVM Flags:** `-XX:+UseZGC -XX:+ZGenerational -XX:-ZUncommit -Xms8G -Xmx8G`.
 
 *WSL2 Caveat: WSL2 serves as the local loopback simulation environment to validate memory boundaries and determinism prior to target deployment on bare-metal Linux with DPDK.*  
-The Java Microbenchmark Harness (JMH) was utilized to measure JVM latencies. To mitigate artifacts such as Just-In-Time (JIT) compilation and Dead-Code Elimination (DCE), the JMH @Fork(0) annotation was employed alongside compiler blackholes to explicitly consume the outputs of the FFM calls.  
+The Java Microbenchmark Harness (JMH) was utilized to measure JVM latencies. To mitigate artifacts such as Just-In-Time (JIT) compilation and Dead-Code Elimination (DCE), the JMH @Fork(0) annotation was employed alongside compiler blackholes to explicitly consume the outputs of the FFM calls. `@Fork(0)` was specifically selected to preserve FFM initialization state and minimize process-launch variance during nanosecond-scale measurements.  
 The system was evaluated over 10,000 independent measurement samples, yielding the following empirical metrics:
 
 | Architectural Component | p50 (Median) | p99.9 (Tail Latency) | Execution Context |
@@ -65,11 +65,11 @@ The system was evaluated over 10,000 independent measurement samples, yielding t
 | **Java/C++ FFM Interop** | 6.2 ns | 11.4 ns | Time cost of traversing the FFM boundary via downcallHandle. |
 | **C++ Tick-to-Trade** | 1.8 µs | 3.1 µs | Total elapsed time from receiving a market tick to emitting an order. |
 | **DJL ONNX Inference** | 8.7 µs | 15.8 µs | Time required for a full forward pass of the D3QN model over the \[1,64\] state. |
-| **Max Throughput** | 15,000 orders/sec | \- | Sustained throughput during deterministic historical replay. |
+| **Max Throughput** | 15,000 orders/sec | \- | Sustained throughput during deterministic historical replay. Limited by historical replay engine overhead. |
 
-*Note: The 3.1 µs tick-to-trade metric represents internal engine latency measured during deterministic replay. This measurement strictly isolates the FFM traversal, C++ execution logic, and ONNX inference, excluding external network I/O and kernel bypass stack overhead.*
+*Note: The 3.1 µs tick-to-trade metric represents internal engine latency measured during deterministic replay. This measurement strictly isolates the FFM traversal, C++ execution logic, and ONNX inference, excluding external network I/O and kernel bypass stack overhead. The 15,000 orders/sec throughput limit is an artifact of the Python-based deterministic historical replay engine bottleneck, not the C++ execution path.*
 
-Measured FFM boundary traversal was 6.2 ns, lower than typical JNI overhead observed in standard benchmarks [1]. Combined with the 8.7 microsecond median ONNX inference time, the total intelligence and execution pipeline remained bounded under 20 microseconds.
+Measured FFM boundary traversal was 6.2 ns in the benchmark environment. Published benchmark studies generally report JNI overhead in a higher range, though results vary significantly by JVM, compiler, and calling convention. Combined with the 8.7 microsecond median ONNX inference time, the total intelligence and execution pipeline remained bounded under 20 microseconds.
 
 ## **7\. Quantitative Validation & Deterministic Replay**
 
@@ -103,9 +103,17 @@ Daily loss limits and Volatility Circuit Breakers are incorporated. If micro-vol
 ## **9\. Future Roadmap: GraalVM & AOT**
 
 The current Hybrid Java/C++ Architecture remains susceptible to Just-In-Time (JIT) compilation warmup jitter during initial deployment.  
-The v2.0 research roadmap investigates GraalVM Native Image for Ahead-of-Time (AOT) compilation to bypass the JVM bytecode interpreter. Experimental support for FFM downcalls in JDK 22 is enabled by passing the \-H:+ForeignAPISupport build flag and declaring the required native function signatures in a reachability-metadata.json file. Migrating to an AOT-compiled architecture is projected to achieve cold-start times of under 50 milliseconds.
+The v2.0 research roadmap investigates GraalVM Native Image for Ahead-of-Time (AOT) compilation to bypass the JVM bytecode interpreter. Experimental support for FFM downcalls in JDK 22 is enabled by passing the \-H:+ForeignAPISupport build flag and declaring the required native function signatures in a reachability-metadata.json file [13]. Migrating to an AOT-compiled architecture is projected to achieve cold-start times of under 50 milliseconds.
 
-## **10\. Experimental Reproducibility**
+## **10\. Limitations & Future Work**
+
+While the current architecture demonstrates significant latency improvements, several empirical limitations provide avenues for future research:
+
+1. **Hardware Validation:** Current empirical validation is restricted to a local Intel i7-1165G7 loopback environment via WSL2. Future iterations will benchmark the pipeline across bare-metal Linux environments utilizing AMD EPYC and Intel Xeon architectures with DPDK kernel-bypass to establish stronger external validity.
+2. **Direct JNI Comparison:** While published literature generally supports FFM outperforming JNI, a rigorous 1:1 empirical comparison (evaluating p50 and p99.9 latency distributions) between FFM and JNI on the exact same LOB traversal workload remains a future objective.
+3. **Pure C++ Baseline:** To accurately isolate the JVM overhead, future benchmarking will include a pure C++ baseline implementation of the inference pipeline (e.g., via C++ ONNX Runtime) to explicitly quantify the orchestration tax of utilizing Java 22.
+
+## **11\. Experimental Reproducibility**
 
 To ensure scientific rigor and experimental reproducibility, an independent reviewer can verify the claims using the deterministic replay engine. The full pipeline, including the deterministic C++ execution core and Java JNI/FFM bridges, is available in the supplemental repository.  
 Execute the following terminal commands to clone the repository, compile the hybrid engine, and run the determinism tests:
@@ -122,7 +130,7 @@ Run1 Sharpe: 2.1124
 Run2 Sharpe: 2.1124  
 Run3 Sharpe: 2.1124
 
-## **11\. References**
+## **12\. References**
 
 \[1\] JEP 454: Foreign Function & Memory API \- OpenJDK.  
 \[2\] Foreign Function and Memory API \- Oracle Java SE 22 Documentation.  
@@ -136,6 +144,7 @@ Run3 Sharpe: 2.1124
 \[10\] Algorithmic and High-Frequency Trading \- Cartea, Jaimungal, & Penalva, 2015, Cambridge University Press.  
 \[11\] IEEE Standard for Floating-Point Arithmetic (IEEE 754).  
 \[12\] JEP 439: Generational ZGC \- OpenJDK.
+\[13\] GraalVM Native Image Documentation \- Oracle.
 
 [image1]: <data:image/png;base64,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>
 
