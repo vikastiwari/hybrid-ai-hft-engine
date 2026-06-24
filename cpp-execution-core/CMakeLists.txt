@@ -18,6 +18,9 @@ target_link_libraries(hft_core PRIVATE rt pthread)
 
 # Fetch GoogleTest
 include(FetchContent)
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
