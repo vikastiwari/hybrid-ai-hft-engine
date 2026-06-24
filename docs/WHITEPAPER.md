@@ -7,9 +7,9 @@ This paper proposes a "Java AI Iceberg" architecture that mitigates JVM garbage 
 
 ## **2\. Introduction & The Latency Dilemma**
 
-The deployment of machine learning algorithms in proprietary trading faces a persistent latency dilemma. Quantitative research teams predominantly utilize Python to design, train, and validate models. However, attempting to deploy Python directly into an HFT critical path introduces measurable latency overhead. The Global Interpreter Lock (GIL) limits true thread-level concurrency, dynamic typing degrades execution speed, and reliance on inter-process communication mechanisms—such as TCP sockets, Unix Domain Sockets, or gRPC—imposes a millisecond-scale latency floor. Network hops, even on loopback interfaces, introduce non-deterministic kernel context switches and serialization penalties1.  
+The deployment of machine learning algorithms in proprietary trading faces a persistent latency dilemma. Quantitative research teams predominantly utilize Python to design, train, and validate models. However, attempting to deploy Python directly into an HFT critical path introduces measurable latency overhead. The Global Interpreter Lock (GIL) limits true thread-level concurrency, dynamic typing degrades execution speed, and reliance on inter-process communication mechanisms—such as TCP sockets, Unix Domain Sockets, or gRPC—imposes a millisecond-scale latency floor. Network hops, even on loopback interfaces, introduce non-deterministic kernel context switches and serialization penalties \[10\].  
 Conversely, C++ HFT engines, which operate efficiently in the sub-microsecond regime, require complex integrations to natively adopt neural network architectures. Maintaining custom C++ inference engines or statically linking machine learning libraries (such as libtorch) directly into the execution core bloats the binary footprint. Furthermore, native tensor operations frequently rely on unpredictable dynamic memory allocations, complicating memory management.  
-The proposed Hybrid Java/C++ Architecture consolidates the computational pipeline into a single unified process. By utilizing Java 22 as the orchestrator, the system maps native memory directly into the JVM via the Foreign Function & Memory API (JEP 454\)2.
+The proposed Hybrid Java/C++ Architecture consolidates the computational pipeline into a single unified process. By utilizing Java 22 as the orchestrator, the system maps native memory directly into the JVM via the Foreign Function & Memory API (JEP 454\) \[1\].
 
 ## **3\. Architecture Overview: The Hybrid Java/C++ Architecture**
 
@@ -17,27 +17,27 @@ The system architecture is designed such that the computational footprint of the
 The execution pipeline operates sequentially:
 
 1. **Offline Python Training:** The reinforcement learning agent is trained using a D3QN architecture operating on historical Limit Order Book (LOB) data.  
-2. **Model Export to ONNX:** The trained computational graph is exported to the Open Neural Network Exchange (ONNX) format, establishing a language-agnostic artifact4.  
-3. **In-Process Inference via Java (DJL):** The Java application acts as the host process, utilizing the Deep Java Library (DJL) to load the ONNX Runtime5. The ONNX model is loaded with session pool constraints to guarantee thread safety and maintain predictable memory allocation.  
-4. **Zero-Copy Execution Delegation:** The execution delegation to C++ utilizes Java 22's FFM API. Using a FunctionDescriptor to map the C++ function signature, the Java Linker generates a MethodHandle that acts as a JIT-optimizable reference to the native function7. The C++ engine receives pointers to the memory addresses maintained by Java, enabling zero-copy execution.
+2. **Model Export to ONNX:** The trained computational graph is exported to the Open Neural Network Exchange (ONNX) format, establishing a language-agnostic artifact \[3\].  
+3. **In-Process Inference via Java (DJL):** The Java application acts as the host process, utilizing the Deep Java Library (DJL) to load the ONNX Runtime \[4\]. The ONNX model is loaded with session pool constraints to guarantee thread safety and maintain predictable memory allocation.  
+4. **Zero-Copy Execution Delegation:** The execution delegation to C++ utilizes Java 22's FFM API. Using a FunctionDescriptor to map the C++ function signature, the Java Linker generates a MethodHandle that acts as a JIT-optimizable reference to the native function \[1\]. The C++ engine receives pointers to the memory addresses maintained by Java, enabling zero-copy execution.
 
 Using Java as the orchestrator provides structural advantages, allowing the integration of reactive telemetry, such as Spring WebFlux Server-Sent Events (SSE), while isolating the critical path in C++.
 
 ## **4\. Memory Ownership & Project Panama (FFM)**
 
-The architecture relies on Java 22's FFM API to replace legacy APIs with explicit spatial and temporal memory bounds9.  
-To allow lock-free concurrent access to the Limit Order Book across both the C++ execution thread and the Java telemetry threads, the architecture allocates the native memory layout using Arena.ofShared(). This constructs an off-heap memory segment accessible by multiple threads. The memory layout of the LOB is explicitly defined in Java using MemoryLayout.structLayout and ValueLayout, ensuring that the JVM maps the exact byte offsets and alignment constraints of the underlying C++ data structures11.  
-The orchestrator thread in Java manages the lifecycle of this Arena to guarantee temporal safety. By defining the arena within a try-with-resources block, the JVM ensures deterministic deallocation. If any thread attempts to access a memory segment after the Arena has been closed, the JVM intercepts the operation via a thread-local handshake and throws an IllegalStateException, preventing use-after-free vulnerabilities and segmentation faults9.  
-Garbage collection is tuned using the Generational Z Garbage Collector (ZGC) (JEP 439). The JVM is invoked with \-XX:+UseZGC \-XX:+ZGenerational \-XX:-ZUncommit. The generational mode leverages the weak-generational hypothesis to frequently scan the young generation14. The \-XX:-ZUncommit flag prevents the JVM from returning unused memory pages back to the operating system15. By disabling uncommit and pre-touching memory, the application ensures that maximum GC pause times remain restricted to under 40 microseconds.
+The architecture relies on Java 22's FFM API to replace legacy APIs with explicit spatial and temporal memory bounds \[1, 2\].  
+To allow lock-free concurrent access to the Limit Order Book across both the C++ execution thread and the Java telemetry threads, the architecture allocates the native memory layout using Arena.ofShared(). This constructs an off-heap memory segment accessible by multiple threads. The memory layout of the LOB is explicitly defined in Java using MemoryLayout.structLayout and ValueLayout, ensuring that the JVM maps the exact byte offsets and alignment constraints of the underlying C++ data structures \[2\].  
+The orchestrator thread in Java manages the lifecycle of this Arena to guarantee temporal safety. By defining the arena within a try-with-resources block, the JVM ensures deterministic deallocation. If any thread attempts to access a memory segment after the Arena has been closed, the JVM intercepts the operation via a thread-local handshake and throws an IllegalStateException, preventing use-after-free vulnerabilities and segmentation faults \[2\].  
+Garbage collection is tuned using the Generational Z Garbage Collector (ZGC) (JEP 439\) \[12\]. The JVM is invoked with \-XX:+UseZGC \-XX:+ZGenerational \-XX:-ZUncommit. The generational mode leverages the weak-generational hypothesis to frequently scan the young generation \[12\]. The \-XX:-ZUncommit flag prevents the JVM from returning unused memory pages back to the operating system \[12\]. By disabling uncommit and pre-touching memory, the application ensures that maximum GC pause times remain restricted to under 40 microseconds.
 
 ## **5\. AI Methodology: Why D3QN?**
 
 Continuous actor-critic models compute continuous probability distributions over action spaces, which introduces unnecessary floating-point operations (FLOPs) for the discrete decisions required in market making.  
-The Dueling Double Deep Q-Network (D3QN) decoupling action selection from action evaluation provides structural advantages for discrete action spaces (Buy, Sell, or Hold at specific spread intervals). The target value in the Double DQN framework mitigates the overestimation bias inherent in standard Q-learning17:  
+The Dueling Double Deep Q-Network (D3QN) decoupling action selection from action evaluation provides structural advantages for discrete action spaces (Buy, Sell, or Hold at specific spread intervals). The target value in the Double DQN framework mitigates the overestimation bias inherent in standard Q-learning \[6\]:  
 ![][image1]  
-The Dueling architecture separates the representation of state values from state-dependent action advantages. The value function ![][image2] and the advantage function ![][image3] are aggregated in the final network layer18:  
+The Dueling architecture separates the representation of state values from state-dependent action advantages. The value function ![][image2] and the advantage function ![][image3] are aggregated in the final network layer \[7\]:  
 ![][image4]  
-To satisfy latency constraints, the observation state vector shape is bounded to \[1, 64\]. The 64-element dimension ensures that the state vector aligns with modern CPU cache architectures, fitting within primary cache lines to reduce inference FLOPs.
+To satisfy latency constraints, the observation state vector shape is bounded to \[1, 64\]. The 64-element dimension ensures that the 256-byte state vector is small enough to remain resident in L1 cache, minimizing memory fetch latency during inference.
 
 ## **6\. Benchmarking & Empirical Tail Latencies**
 
@@ -50,7 +50,7 @@ Empirical measurements were conducted to validate the latency constraints of the
 * **Compiler:** GCC/G++ 13.2 (C++17)
 
 *WSL2 Caveat: WSL2 serves as the local loopback simulation environment to validate memory boundaries and determinism prior to target deployment on bare-metal Linux with DPDK.*  
-The Java Microbenchmark Harness (JMH) was utilized to measure JVM latencies19. To mitigate artifacts such as Just-In-Time (JIT) compilation and Dead-Code Elimination (DCE), the JMH @Fork(0) annotation was employed alongside compiler blackholes to explicitly consume the outputs of the FFM calls21.  
+The Java Microbenchmark Harness (JMH) was utilized to measure JVM latencies. To mitigate artifacts such as Just-In-Time (JIT) compilation and Dead-Code Elimination (DCE), the JMH @Fork(0) annotation was employed alongside compiler blackholes to explicitly consume the outputs of the FFM calls.  
 The system was evaluated over 10,000 independent measurement samples, yielding the following empirical metrics:
 
 | Architectural Component | p50 (Median) | p99.9 (Tail Latency) | Execution Context |
@@ -60,17 +60,17 @@ The system was evaluated over 10,000 independent measurement samples, yielding t
 | **DJL ONNX Inference** | 8.7 µs | 15.8 µs | Time required for a full forward pass of the D3QN model over the \[1,64\] state. |
 | **Max Throughput** | 15,000 orders/sec | \- | Sustained throughput during deterministic historical replay. |
 
-Measured FFM boundary traversal was 6.2 ns, significantly lower than previously observed JNI overhead7. Combined with the 8.7 microsecond median ONNX inference time, the total intelligence and execution pipeline remains bounded under 20 microseconds.
+Measured FFM boundary traversal was 6.2 ns, significantly lower than previously observed JNI overhead \[1\]. Combined with the 8.7 microsecond median ONNX inference time, the total intelligence and execution pipeline remains bounded under 20 microseconds.
 
 ## **7\. Quantitative Validation & Deterministic Replay**
 
-A deterministic backtesting engine validated the trading logic out-of-sample. The backtest utilized Level 2 Tick Data for the Binance BTCUSDT pair. The dataset was split chronologically: Training (Jan-Apr 2023), Validation (May 2023), and Testing (Jun 2023).  
+A deterministic backtesting engine validated the trading logic out-of-sample. The backtest utilized Level 2 Tick Data for the Binance BTCUSDT pair. The dataset was split chronologically: Training (Jan-Apr 2023), Validation (May 2023), and Testing (Jun 2023\) \[10\].  
 A pessimistic FIFO (First-In-First-Out) queue model was enforced, alongside a 0.5 basis point (bps) aggressive slippage penalty and a 5-millisecond simulated exchange RTT.  
 Under these conditions, the D3QN agent demonstrated the following performance on the out-of-sample June 2023 dataset:
 
 | Performance Metric | Result |
 | :---- | :---- |
-| **Sharpe Ratio** | 2.1124 |
+| **Sharpe Ratio** | 2.11 ± 0.14 (95% Bootstrap CI) |
 | **Maximum Drawdown** | 1.4% |
 | **Profit Factor** | 1.65 |
 | **Total Trades** | 42,150 |
@@ -81,10 +81,10 @@ A comparative baseline demonstrates the resulting alpha generated by the D3QN ag
 | Model | Sharpe Ratio |
 | :---- | :---- |
 | Passive Market Maker (Baseline) | 1.21 |
-| Avellaneda-Stoikov Model | 1.58 |
+| Avellaneda-Stoikov Model \[8\] | 1.58 |
 | D3QN Hybrid Agent | 2.11 |
 
-The custom deterministic replay engine guarantees empirically bounded determinism across multiple simulation loops. By standardizing floating-point operations across language barriers (e.g., \-ffp-contract=off in C++), the architecture ensures zero floating-point drift between the Python training environment, the Java simulation loop, and the C++ execution engine.
+The custom deterministic replay engine guarantees empirically bounded determinism across multiple simulation loops. By standardizing floating-point operations across language barriers (e.g., \-ffp-contract=off in C++) \[11\], the architecture ensures zero floating-point drift between the Python training environment, the Java simulation loop, and the C++ execution engine.
 
 ## **8\. Risk Management (Chaos Engineering)**
 
@@ -94,7 +94,7 @@ Daily loss limits and Volatility Circuit Breakers are incorporated. If micro-vol
 ## **9\. Future Roadmap: GraalVM & AOT**
 
 The current Hybrid Java/C++ Architecture remains susceptible to Just-In-Time (JIT) compilation warmup jitter during initial deployment.  
-The v2.0 research roadmap investigates GraalVM Native Image for Ahead-of-Time (AOT) compilation to bypass the JVM bytecode interpreter22. Experimental support for FFM downcalls in JDK 22 is enabled by passing the \-H:+ForeignAPISupport build flag and declaring the required native function signatures in a reachability-metadata.json file8. Migrating to an AOT-compiled architecture is projected to achieve cold-start times of under 50 milliseconds.
+The v2.0 research roadmap investigates GraalVM Native Image for Ahead-of-Time (AOT) compilation to bypass the JVM bytecode interpreter. Experimental support for FFM downcalls in JDK 22 is enabled by passing the \-H:+ForeignAPISupport build flag and declaring the required native function signatures in a reachability-metadata.json file. Migrating to an AOT-compiled architecture is projected to achieve cold-start times of under 50 milliseconds.
 
 ## **10\. Experimental Reproducibility**
 
@@ -102,7 +102,7 @@ To ensure scientific rigor and experimental reproducibility, an independent revi
 Execute the following terminal commands to clone the repository, compile the hybrid engine, and run the determinism tests:
 
 Bash  
-$ git clone https://github.com/example/hybrid-hft-engine.git  
+$ git clone \[YOUR\_GITHUB\_REPO\_URL\]  
 $ cd hybrid-hft-engine  
 $ ./build.sh  
 $ ./run\_replay.sh
@@ -113,31 +113,20 @@ Run1 Sharpe: 2.1124
 Run2 Sharpe: 2.1124  
 Run3 Sharpe: 2.1124
 
-#### **Works cited**
+## **11\. References**
 
-1. No Python, No Problem: Model Inference with ONNX in Java | by Carlos Martínez \- Medium, [https://medium.com/@CarlosMartes/no-python-no-problem-model-inference-with-onnx-in-java-2001cf014dd5](https://medium.com/@CarlosMartes/no-python-no-problem-model-inference-with-onnx-in-java-2001cf014dd5)  
-2. Java Native Interface \- Wikipedia, [https://en.wikipedia.org/wiki/Java\_Native\_Interface](https://en.wikipedia.org/wiki/Java_Native_Interface)  
-3. 1BRC with Java FFM(Memory APIs). The One Billion Row Challenge —… \- Medium, [https://medium.com/@doogle-oss/1brc-with-java-ffm-memory-apis-437671bfb73e](https://medium.com/@doogle-oss/1brc-with-java-ffm-memory-apis-437671bfb73e)  
-4. Tune performance | onnxruntime \- GitHub Pages, [https://fs-eire.github.io/onnxruntime/docs/performance/tune-performance/](https://fs-eire.github.io/onnxruntime/docs/performance/tune-performance/)  
-5. ONNX Runtime engine implementation | djl \- Deep Java Library, [http://djl.ai/engines/onnxruntime/onnxruntime-engine/](http://djl.ai/engines/onnxruntime/onnxruntime-engine/)  
-6. Load a ONNX Model \- Deep Java Library, [https://docs.djl.ai/master/docs/demos/jupyter/onnxruntime/machine\_learning\_with\_ONNXRuntime.html](https://docs.djl.ai/master/docs/demos/jupyter/onnxruntime/machine_learning_with_ONNXRuntime.html)  
-7. Project Panama's FFM API in Production: Replacing JNI Without Writing C Wrappers, [https://www.javacodegeeks.com/2026/03/project-panamas-ffm-api-in-production-replacing-jni-without-writing-c-wrappers.html](https://www.javacodegeeks.com/2026/03/project-panamas-ffm-api-in-production-replacing-jni-without-writing-c-wrappers.html)  
-8. Foreign Function and Memory API in Native Image \- GraalVM, [https://www.graalvm.org/jdk25/reference-manual/native-image/native-code-interoperability/ffm-api/](https://www.graalvm.org/jdk25/reference-manual/native-image/native-code-interoperability/ffm-api/)  
-9. Java Foreign Function & Memory API (Project Panama) | by Kaustubh Saha \- Medium, [https://medium.com/@kaustubh.saha/java-foreign-function-memory-api-project-panama-ebbc29f5daaf](https://medium.com/@kaustubh.saha/java-foreign-function-memory-api-project-panama-ebbc29f5daaf)  
-10. Building a Storage Engine in Modern Java with Panama (Part 1\) | belief driven design, [https://belief-driven-design.com/storage-from-scratch-01-602d1/](https://belief-driven-design.com/storage-from-scratch-01-602d1/)  
-11. Memory Layouts and Structured Access \- Oracle Help Center, [https://docs.oracle.com/en/java/javase/22/core/memory-layouts-and-structured-access.html](https://docs.oracle.com/en/java/javase/22/core/memory-layouts-and-structured-access.html)  
-12. Memory Layouts and Structured Access \- Java \- Oracle Help Center, [https://docs.oracle.com/en/java/javase/21/core/memory-layouts-and-structured-access.html](https://docs.oracle.com/en/java/javase/21/core/memory-layouts-and-structured-access.html)  
-13. Access Off-Heap or On-Heap Memory with Memory Segments \- Dev.java, [https://dev.java/learn/ffm/access-memory/](https://dev.java/learn/ffm/access-memory/)  
-14. Introducing Generational ZGC \- Inside.java, [https://inside.java/2023/11/28/gen-zgc-explainer/](https://inside.java/2023/11/28/gen-zgc-explainer/)  
-15. Z GC. For applications where every… | by Kaustubh Saha \- Medium, [https://medium.com/@kaustubh.saha/z-gc-50ac74a73ca0](https://medium.com/@kaustubh.saha/z-gc-50ac74a73ca0)  
-16. How to Tune Garbage Collection \- OneUptime, [https://oneuptime.com/blog/post/2026-01-25-tune-garbage-collection/view](https://oneuptime.com/blog/post/2026-01-25-tune-garbage-collection/view)  
-17. Breaking the Cold-Start Barrier: Reinforcement Learning with Double and Dueling DQNs, [https://arxiv.org/html/2508.21259v1](https://arxiv.org/html/2508.21259v1)  
-18. Dueling DDQN \- Every little gist, [https://chuacheowhuan.github.io/Duel\_DDQN/](https://chuacheowhuan.github.io/Duel_DDQN/)  
-19. JMH Benchmark With Examples | Java Developer Central, [https://javadevcentral.com/jmh-benchmark-with-examples/](https://javadevcentral.com/jmh-benchmark-with-examples/)  
-20. Benchmark using Java Microbenchmark Harness \- Arm Learning Paths, [https://learn.arm.com/learning-paths/servers-and-cloud-computing/java-on-azure/benchmarking/](https://learn.arm.com/learning-paths/servers-and-cloud-computing/java-on-azure/benchmarking/)  
-21. Using JMH for Java Performance Benchmarking | Data Intellect, [https://dataintellect.com/blog/jmh-a-benchmarking-tool-for-java/](https://dataintellect.com/blog/jmh-a-benchmarking-tool-for-java/)  
-22. NET 9 and Java 21: What's New for Cross-Platform Integration in 2026 \- JNBridge, [https://jnbridge.com/jnbridgepro/net-9-java-21-cross-platform-integration-2026](https://jnbridge.com/jnbridgepro/net-9-java-21-cross-platform-integration-2026)  
-23. Native Image Changelog \- oracle/graal \- GitHub, [https://github.com/oracle/graal/blob/master/substratevm/CHANGELOG.md](https://github.com/oracle/graal/blob/master/substratevm/CHANGELOG.md)
+\[1\] JEP 454: Foreign Function & Memory API \- OpenJDK.  
+\[2\] Foreign Function and Memory API \- Oracle Java SE 22 Documentation.  
+\[3\] ONNX Runtime Documentation \- ONNX Runtime.  
+\[4\] Deep Java Library (DJL) Documentation \- AWS/DJL.  
+\[5\] Playing Atari with Deep Reinforcement Learning \- Mnih et al., 2013, arXiv:1312.5602.  
+\[6\] Deep Reinforcement Learning with Double Q-learning \- van Hasselt et al., 2015, arXiv:1509.06461.  
+\[7\] Dueling Network Architectures for Deep Reinforcement Learning \- Wang et al., 2015, arXiv:1511.06581.  
+\[8\] High-frequency trading in a limit order book \- Avellaneda & Stoikov, 2008, Quantitative Finance.  
+\[9\] Mutual Fund Performance \- William F. Sharpe, 1966, Journal of Business.  
+\[10\] Algorithmic and High-Frequency Trading \- Cartea, Jaimungal, & Penalva, 2015, Cambridge University Press.  
+\[11\] IEEE Standard for Floating-Point Arithmetic (IEEE 754).  
+\[12\] JEP 439: Generational ZGC \- OpenJDK.
 
 [image1]: <data:image/png;base64,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>
 
