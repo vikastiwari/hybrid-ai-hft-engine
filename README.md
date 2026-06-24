@@ -33,7 +33,7 @@ You can mathematically verify these metrics by running `./run_benchmarks.sh`, wh
 | Metric | Value | Measurement Method |
 |--------|-------|-------------------|
 | **Tick-to-Trade Latency (C++ Core)** | `<2µs` | Core Processing (Excluding Network Stack) |
-| **Java/C++ Interop Overhead (FFM)** | `<10ns` | Java Microbenchmark Harness (JMH). Memory managed via `Arena.ofShared()` for zero-GC deterministic deallocation. |
+| **Java/C++ Interop Overhead (FFM)** | `<10ns` | Java Microbenchmark Harness (JMH). Memory managed via `Arena.ofShared()` for zero-GC deterministic deallocation. *(Shared Arena lifecycle is managed by the main orchestrator thread, ensuring closure only after all worker threads have completed their critical sections).* |
 | **D3QN Inference Latency (ONNX)** | `<20µs` | Python `onnxruntime` + Java DJL (CPU). *(Benchmarked with optimized state vector shape [1, 64])* |
 | **LOB Memory Footprint** | `~16KB` | C++ `sizeof()` analysis |
 | **SSE Telemetry Latency** | <50ms | Browser event to dashboard render |
@@ -50,7 +50,7 @@ This repository includes a master orchestration script to compile the native lib
    ```bash
    ./run_system.sh
    ```
-   *This script compiles the C++ backend into a `.so` library, and then launches the Java Spring Boot orchestrator with `--enable-preview` to activate the Panama FFM API.*
+   *This script compiles the C++ backend into a `.so` library, and then launches the Java Spring Boot orchestrator with `--enable-preview` and `--enable-native-access=ALL-UNNAMED` to securely activate the Panama FFM API.*
 
 3. **Launch the Dashboard:**
    In a separate terminal, navigate to the React dashboard and run:
@@ -90,7 +90,7 @@ To execute the entire master test suite, simply run:
 
 ## 🚀 Roadmap (v2.0)
 - Expand PyTorch training environment with multi-agent reinforcement learning.
-- GraalVM Native Image support for `<50ms` startup and fully removed JIT warmup jitter.
+- GraalVM Native Image support for `<50ms` startup and fully removed JIT warmup jitter. *(Investigating GraalVM FFM compatibility layers for AOT compilation).*
 - Support for FPGA offloading of LOB construction.
 
 ---
