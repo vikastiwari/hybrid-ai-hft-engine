@@ -75,7 +75,7 @@ public class PanamaEngineClient {
     
     // Example method to demonstrate zero-copy read
     public double getPriceAtLevel(int level) {
-        return (double) priceHandle.get(lobSegment, (long)level);
+        return (double) priceHandle.get(lobSegment, 0L, (long)level);
     }
     
     public int submitOrder(double price, int quantity, int side) {
