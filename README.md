@@ -32,7 +32,7 @@ You can mathematically verify these metrics by running `./run_benchmarks.sh`, wh
 
 | Metric | Value | Measurement Method |
 |--------|-------|-------------------|
-| **Tick-to-Trade Latency (C++ Core)** | `<2µs` | Wire-level packet capture (Simulated DPDK) |
+| **Tick-to-Trade Latency (C++ Core)** | `<2µs` | Core Processing (Excluding Network Stack) |
 | **Java/C++ Interop Overhead (FFM)** | `<10ns` | Java Microbenchmark Harness (JMH) |
 | **D3QN Inference Latency (ONNX)** | `<20µs` | Python `onnxruntime` + Java DJL (CPU) |
 | **LOB Memory Footprint** | `~16KB` | C++ `sizeof()` analysis |
@@ -85,3 +85,10 @@ To execute the entire master test suite, simply run:
 - `/python-drl-brain`: PyTorch + Stable-Baselines3 offline training pipeline that exports ONNX models.
 - `/react-dashboard`: Frontend telemetry viewer with live Recharts Order Book.
 - `run_system.sh`: Master orchestration script.
+
+---
+
+## ⚠️ Limitations & Hardware Context (WSL2)
+This engine is designed to run on bare-metal Linux. If executing via Windows Subsystem for Linux (WSL2), please note the following virtualization limits:
+1. **Network Virtualization:** WSL2 traffic routes through a Hyper-V virtual switch. True DPDK is not supported. The `<2µs` Tick-to-Trade latency represents **Core C++ Processing**; true wire-level latency on WSL2 will incur an additional 15µs-40µs virtualization penalty.
+2. **Memory Paging:** For consistent latency on WSL2, you must lock memory limits and disable swap in your Windows `.wslconfig` to prevent OS-level scheduler thrashing.
