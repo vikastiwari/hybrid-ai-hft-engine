@@ -14,8 +14,8 @@ Input Shape: [1, 64]
 Warming up JIT/ONNX Engine...
 Running 10000 iterations...
 ---------------------------------------------
-Total Time: 0.1163 seconds
-Average Inference Latency: 11.63 µs
+Total Time: 0.0876 seconds
+Average Inference Latency: 8.76 µs
 =============================================
 
 [3/3] Running Java JMH FFM Zero-Copy Benchmark...
@@ -23,7 +23,7 @@ This takes about ~20 seconds to warm up the JIT compiler...
 # JMH version: 1.37
 # VM version: JDK 21.0.11, OpenJDK 64-Bit Server VM, 21.0.11+10-1-24.04.2-Ubuntu
 # VM invoker: /usr/lib/jvm/java-21-openjdk-amd64/bin/java
-# VM options: --enable-preview
+# VM options: --enable-preview --enable-native-access=ALL-UNNAMED
 # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
 # Warmup: 3 iterations, 1 s each
 # Measurement: 5 iterations, 1 s each
@@ -32,29 +32,30 @@ This takes about ~20 seconds to warm up the JIT compiler...
 # Benchmark mode: Average time, time/op
 # Benchmark: com.hft.orchestrator.benchmark.FFMBridgeBenchmark.benchmarkZeroCopyDereference
 
-
-[ExecutionEngine] Initializing Execution Core...
+# Warmup Iteration   1: [ExecutionEngine] Initializing Execution Core...
 [Network] Initialized Standard POSIX Socket Client (Local/Cloud Mode)
 [C++] Execution Engine Initialized for Panama
-10.092 ns/op
-# Warmup Iteration   2: 9.373 ns/op
-# Warmup Iteration   3: 9.294 ns/op
-Iteration   1: 9.884 ns/op
-Iteration   2: 9.661 ns/op
-Iteration   3: 8.722 ns/op
-Iteration   4: 8.592 ns/op
-Iteration   5: 8.148 ns/op
+7.749 ns/op
+# Warmup Iteration   2: 6.583 ns/op
+# Warmup Iteration   3: 6.273 ns/op
+Iteration   1: 5.986 ns/op
+Iteration   2: 6.511 ns/op
+Iteration   3: 6.172 ns/op
+Iteration   4: 6.339 ns/op
+Iteration   5: 6.103 ns/op
 
 Result "com.hft.orchestrator.benchmark.FFMBridgeBenchmark.benchmarkZeroCopyDereference":
-  9.001 ±(99.9%) 2.849 ns/op [Average]
-  (min, avg, max) = (8.148, 9.001, 9.884), stdev = 0.740
-  CI (99.9%): [6.153, 11.850] (assumes normal distribution)
+  6.222 ±(99.9%) 0.793 ns/op [Average]
+  (min, avg, max) = (5.986, 6.222, 6.511), stdev = 0.206
+  CI (99.9%): [5.430, 7.015] (assumes normal distribution)
 
 
 # Run complete. Total time: 00:00:08
 
 Benchmark                                        Mode  Cnt  Score   Error  Units
-FFMBridgeBenchmark.benchmarkZeroCopyDereference  avgt    5  9.001 ± 2.849  ns/op
+FFMBridgeBenchmark.benchmarkZeroCopyDereference  avgt    5  6.222 ± 0.793  ns/op
+
+Benchmark result is saved to ../benchmark_data.csv
 
 =================================================
 🏆 Benchmarks Completed Successfully 🏆

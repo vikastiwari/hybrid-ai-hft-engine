@@ -5,6 +5,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.results.format.ResultFormatType;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
@@ -71,7 +72,9 @@ public class FFMBridgeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(FFMBridgeBenchmark.class.getSimpleName())
-                .jvmArgs("--enable-preview")
+                .jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+                .resultFormat(ResultFormatType.CSV)
+                .result("../benchmark_data.csv")
                 .build();
         new Runner(opt).run();
     }

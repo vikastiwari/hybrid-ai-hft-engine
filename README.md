@@ -28,7 +28,7 @@ Designed specifically to eliminate latency and maximize memory safety:
 
 ## 📊 Performance Benchmarks (End-to-End Latency)
 To guarantee execution viability at the elite tier, the system is strictly benchmarked using JMH and wire-level packet captures. *(Hardware Profile: 11th Gen Intel Core i7-1165G7 @ 2.80GHz, 16GB Host RAM, WSL2)*. 
-You can mathematically verify these metrics by running `./run_benchmarks.sh`, which will automatically output raw data to `benchmark_results.log`.
+You can mathematically verify these metrics by running `./run_benchmarks.sh`, which will automatically output raw data to `benchmark_results.log` and a machine-readable `benchmark_data.csv`.
 
 | Metric | Value | Measurement Method |
 |--------|-------|-------------------|
