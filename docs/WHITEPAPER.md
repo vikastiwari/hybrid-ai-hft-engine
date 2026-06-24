@@ -115,7 +115,7 @@ While the current architecture demonstrates significant latency improvements, se
 
 ## **11\. Experimental Reproducibility**
 
-To ensure scientific rigor and experimental reproducibility, an independent reviewer can verify the claims using the deterministic replay engine. The full pipeline, including the deterministic C++ execution core and Java JNI/FFM bridges, is available in the supplemental repository.  
+To ensure scientific rigor and experimental reproducibility, an independent reviewer can verify the claims using the deterministic replay engine. The full pipeline, including the deterministic C++ execution core and Java FFM bridges, is available in the supplemental repository.  
 Execute the following terminal commands to clone the repository, compile the hybrid engine, and run the determinism tests:
 
 Bash  
