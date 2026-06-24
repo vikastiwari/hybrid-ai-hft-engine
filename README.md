@@ -17,6 +17,7 @@ This engine implements a **Single-Process "Java AI Iceberg"** architecture. It b
 
 ## 📚 Comprehensive Documentation
 For a deep dive into the engineering, architecture, and deployment procedures, please consult the `docs/` directory:
+- 📄 **[Official Whitepaper](docs/WHITEPAPER.md)**: *Bridging Nanosecond Execution with Microsecond AI* - A deep technical analysis of the Java AI Iceberg architecture.
 - 🏗️ **[Architecture Deep Dive](docs/ARCHITECTURE.md)**: Explore the Single-Process Java Iceberg, Project Panama zero-copy `VarHandle`s, and the TCPDirect Kernel Bypass abstraction layer.
 - 🚀 **[Local WSL Quickstart](docs/QUICKSTART_WSL.md)**: Step-by-step guide to testing, compiling, and running the dashboard and engine locally on Windows Subsystem for Linux.
 
