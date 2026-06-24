@@ -33,8 +33,8 @@ You can mathematically verify these metrics by running `./run_benchmarks.sh`, wh
 | Metric | Value | Measurement Method |
 |--------|-------|-------------------|
 | **Tick-to-Trade Latency (C++ Core)** | `<2µs` | Core Processing (Excluding Network Stack) |
-| **Java/C++ Interop Overhead (FFM)** | `<10ns` | Java Microbenchmark Harness (JMH) |
-| **D3QN Inference Latency (ONNX)** | `<20µs` | Python `onnxruntime` + Java DJL (CPU) |
+| **Java/C++ Interop Overhead (FFM)** | `<10ns` | Java Microbenchmark Harness (JMH). Memory managed via `Arena.ofShared()` for zero-GC deterministic deallocation. |
+| **D3QN Inference Latency (ONNX)** | `<20µs` | Python `onnxruntime` + Java DJL (CPU). *(Benchmarked with optimized state vector shape [1, 64])* |
 | **LOB Memory Footprint** | `~16KB` | C++ `sizeof()` analysis |
 | **SSE Telemetry Latency** | <50ms | Browser event to dashboard render |
 | **Max Throughput** | 15K orders/sec | Stress test with replay data |
@@ -85,6 +85,13 @@ To execute the entire master test suite, simply run:
 - `/python-drl-brain`: PyTorch + Stable-Baselines3 offline training pipeline that exports ONNX models.
 - `/react-dashboard`: Frontend telemetry viewer with live Recharts Order Book.
 - `run_system.sh`: Master orchestration script.
+
+---
+
+## 🚀 Roadmap (v2.0)
+- Expand PyTorch training environment with multi-agent reinforcement learning.
+- GraalVM Native Image support for `<50ms` startup and fully removed JIT warmup jitter.
+- Support for FPGA offloading of LOB construction.
 
 ---
 

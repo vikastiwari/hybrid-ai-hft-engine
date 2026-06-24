@@ -46,7 +46,7 @@ echo "[3/3] Running Java JMH FFM Zero-Copy Benchmark..."
 echo "This takes about ~20 seconds to warm up the JIT compiler..."
 cd java-orchestrator
 
-export MAVEN_OPTS="--enable-preview"
+export MAVEN_OPTS="--enable-preview --enable-native-access=ALL-UNNAMED"
 mvn clean compile test-compile -q -B > /dev/null
 mvn exec:java -q -B -Dexec.mainClass="com.hft.orchestrator.benchmark.FFMBridgeBenchmark" -Dexec.classpathScope=test
 cd ..

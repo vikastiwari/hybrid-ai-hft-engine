@@ -19,7 +19,7 @@ cd java-orchestrator
 # Assumes Maven is installed and Java 22+ is available
 # Run with preview features enabled for Project Panama FFM API and elite ZGC tuning
 export MAVEN_OPTS="-Xms4g -Xmx4g -XX:ConcGCThreads=2"
-mvn spring-boot:run -Dspring-boot.run.jvmArguments="--enable-preview -XX:+UseZGC -XX:+ZGenerational -XX:-ZUncommit -XX:+AlwaysPreTouch" &
+mvn spring-boot:run -Dspring-boot.run.jvmArguments="--enable-preview --enable-native-access=ALL-UNNAMED -XX:+UseZGC -XX:+ZGenerational -XX:-ZUncommit -XX:+AlwaysPreTouch" &
 JAVA_PID=$!
 cd ..
 
