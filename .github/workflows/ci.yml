@@ -1,0 +1,51 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 22
+      uses: actions/setup-java@v3
+      with:
+        java-version: '22'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install C++ Build Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ libomp-dev
+
+    - name: Compile C++ Execution Core
+      run: |
+        mkdir -p cpp-execution-core/build
+        cd cpp-execution-core/build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j4
+
+    - name: Run Java FFM Tests
+      run: |
+        cd java-orchestrator
+        export MAVEN_OPTS="--enable-preview --enable-native-access=ALL-UNNAMED"
+        mvn test -B
+
+    - name: Execute Replay Engine Validation
+      run: |
+        chmod +x run_replay.sh
+        ./run_replay.sh

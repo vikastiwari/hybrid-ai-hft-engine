@@ -9,9 +9,13 @@
 ## ⚡ Overview
 An advanced algorithmic trading infrastructure designed for ultra-low latency execution and robust AI-driven decision making. 
 
-This engine implements a **Single-Process "Java AI Iceberg"** architecture. It bridges a **Dueling Double Deep Q-Network (D3QN)** trained in Python with a sub-millisecond **C++ execution core**, completely orchestrated by a highly optimized **Java Spring Boot** application. 
+<div align="center">
+  <img src="docs/architecture.svg" alt="Architecture Diagram" width="100%">
+</div>
 
-## 📚 World-Class Documentation
+This engine implements a **Single-Process "Java AI Iceberg"** architecture. It bridges a **Dueling Double Deep Q-Network (D3QN)** trained in Python with a sub-millisecond **C++ execution core**, completely orchestrated by a **Java Spring Boot orchestration layer**. 
+
+## 📚 Comprehensive Documentation
 For a deep dive into the engineering, architecture, and deployment procedures, please consult the `docs/` directory:
 - 🏗️ **[Architecture Deep Dive](docs/ARCHITECTURE.md)**: Explore the Single-Process Java Iceberg, Project Panama zero-copy `VarHandle`s, and the TCPDirect Kernel Bypass abstraction layer.
 - 🚀 **[Local WSL Quickstart](docs/QUICKSTART_WSL.md)**: Step-by-step guide to testing, compiling, and running the dashboard and engine locally on Windows Subsystem for Linux.
@@ -29,7 +33,7 @@ Designed specifically to eliminate latency and maximize memory safety:
 ## 📊 System Benchmarks & Methodology (Measured vs Target)
 To guarantee execution viability, the system is strictly benchmarked using JMH. The following metrics explicitly separate our *measured* simulated environment from *aspirational production targets*. 
 *(Hardware Profile: 11th Gen Intel Core i7-1165G7 @ 2.80GHz, 16GB Host RAM, WSL2, CPU Pinning Enabled, 10,000 Sample Size)*. 
-You can mathematically verify these metrics by running `./run_benchmarks.sh`, which outputs to `benchmark_data.csv`.
+You can mathematically verify these metrics by running `./run_benchmarks.sh`, which outputs to the `benchmarks/` directory (see [ffm_latency.csv](benchmarks/ffm_latency.csv), [inference_latency.csv](benchmarks/inference_latency.csv)).
 
 ### Measured Core Latency (WSL2 / Local Loopback)
 | Metric | Value (p50 / p99) | Measurement Method |
@@ -56,6 +60,11 @@ To ensure the 2.1 Sharpe ratio is auditable and not overfit, the backtest engine
 - **Partial Fill Model:** Orders only partially fill based on available top-of-book liquidity.
 
 ### Performance Results (Out-of-Sample)
+To prevent dataset memorization, the model was evaluated using a strict chronological split:
+- **Train:** Jan-Apr 2023
+- **Validation:** May 2023
+- **Test:** Jun 2023
+
 - **Simulated Sharpe Ratio:** `2.1` 
 - **Maximum Drawdown:** `1.4%` (Unleveraged baseline)
 - **Profit Factor:** `1.65`
@@ -115,8 +124,8 @@ To execute the entire master test suite, simply run:
 - **FFM Integration**: 100% (critical path)
 
 ## 🔬 System Components
-- `/docs`: World-class architectural and testing documentation.
-- `/java-orchestrator`: Spring Boot 3 + Java 22+ app. The true "Brain" managing DJL inference and Panama C++ interop.
+- `/docs`: Architecture and deployment documentation.
+- `/java-orchestrator`: Spring Boot 3 + Java 22+ app. Primary orchestration layer managing DJL inference and Panama C++ interop.
 - `/cpp-execution-core`: C++17 shared library (`.so`) exposing `extern "C"` endpoints for ultra-low-latency execution.
 - `/python-drl-brain`: PyTorch + Stable-Baselines3 offline training pipeline that exports ONNX models.
 - `/react-dashboard`: Frontend telemetry viewer with live Recharts Order Book.
@@ -124,7 +133,7 @@ To execute the entire master test suite, simply run:
 
 ---
 
-## 🚀 Roadmap (v2.0)
+## 🚀 Research Roadmap (v2.0)
 - Expand PyTorch training environment with multi-agent reinforcement learning.
 - GraalVM Native Image support for `<50ms` startup and fully removed JIT warmup jitter. *(Investigating GraalVM FFM compatibility layers for AOT compilation).*
 - Support for FPGA offloading of LOB construction.
