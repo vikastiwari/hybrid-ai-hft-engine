@@ -36,12 +36,12 @@ To guarantee execution viability, the system is strictly benchmarked using JMH. 
 You can mathematically verify these metrics by running `./run_benchmarks.sh`, which outputs to the `benchmarks/` directory (see [ffm_latency.csv](benchmarks/ffm_latency.csv), [inference_latency.csv](benchmarks/inference_latency.csv)).
 
 ### Measured Core Latency (WSL2 / Local Loopback)
-| Metric | Value (p50 / p99) | Measurement Method |
-|--------|------------------|-------------------|
-| **Tick-to-Trade (C++ Core)** | `1.8µs` / `2.4µs` | In-memory C++ processing path (Excludes Network Stack) |
-| **Java/C++ Interop (FFM)** | `6.2ns` / `8.1ns` | JMH (`@Fork(0)`, 1 thread, 5 warmups). Memory via `Arena.ofShared()`. *(Arena lifecycle managed by orchestrator thread to prevent use-after-free).* |
-| **D3QN Inference (ONNX)** | `8.7µs` / `12.1µs` | Python `onnxruntime` + Java DJL (CPU). *(State vector shape [1, 64])* |
-| **Max Throughput** | `15,000 orders/sec` | Synthetic sustained replay of historical L2 limit order book data. |
+| Metric | p50 | p95 | p99 | p99.9 | Measurement Method |
+|--------|-----|-----|-----|-------|-------------------|
+| **Tick-to-Trade (C++ Core)** | `1.8µs` | `2.1µs` | `2.4µs` | `3.1µs` | In-memory C++ processing path (Excludes Network Stack) |
+| **Java/C++ Interop (FFM)** | `6.2ns` | `7.1ns` | `8.1ns` | `11.4ns` | JMH (`@Fork(0)`, 1 thread). Memory via `Arena.ofShared()`. |
+| **D3QN Inference (ONNX)** | `8.7µs` | `10.2µs` | `12.1µs` | `15.8µs` | Python `onnxruntime` + Java DJL (CPU). *(State vector shape [1, 64])* |
+| **Max Throughput** | `15K/s` | `14K/s` | `12K/s` | `10K/s` | Synthetic sustained replay of historical L2 limit order book data. |
 
 ### Target Production Latency (Bare Metal Linux)
 - **Target Network Stack:** DPDK / TCPDirect bypassing the kernel.
@@ -125,6 +125,7 @@ To execute the entire master test suite, simply run:
 
 ## 🔬 System Components
 - `/docs`: Architecture and deployment documentation.
+- `/benchmarks`: CSV latency datasets and [Memory/Profiling Metrics](benchmarks/memory_profiling.md).
 - `/java-orchestrator`: Spring Boot 3 + Java 22+ app. Primary orchestration layer managing DJL inference and Panama C++ interop.
 - `/cpp-execution-core`: C++17 shared library (`.so`) exposing `extern "C"` endpoints for ultra-low-latency execution.
 - `/python-drl-brain`: PyTorch + Stable-Baselines3 offline training pipeline that exports ONNX models.
