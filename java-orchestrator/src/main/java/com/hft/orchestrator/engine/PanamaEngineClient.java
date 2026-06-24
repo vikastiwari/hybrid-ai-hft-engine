@@ -10,8 +10,6 @@ import java.lang.invoke.VarHandle;
 
 @Service
 public class PanamaEngineClient {
-    private static final String LIB_PATH = "/home/vikas/Projects/hybrid-ai-hft-engine/cpp-execution-core/build/libhft_execution.so";
-    
     private MethodHandle hftInit;
     private MethodHandle hftShutdown;
     private MethodHandle hftSubmitOrder;
@@ -24,7 +22,14 @@ public class PanamaEngineClient {
     
     @PostConstruct
     public void init() {
-        System.load(LIB_PATH);
+        String path1 = System.getProperty("user.dir") + "/../cpp-execution-core/build/libhft_execution.so";
+        String path2 = System.getProperty("user.dir") + "/cpp-execution-core/build/libhft_execution.so";
+        String path3 = "/home/vikas/Projects/hybrid-ai-hft-engine/cpp-execution-core/build/libhft_execution.so";
+        
+        String libPath = new java.io.File(path1).exists() ? path1 :
+                         new java.io.File(path2).exists() ? path2 : path3;
+
+        System.load(new java.io.File(libPath).getAbsolutePath());
         Linker linker = Linker.nativeLinker();
         SymbolLookup stdlib = SymbolLookup.loaderLookup();
         
